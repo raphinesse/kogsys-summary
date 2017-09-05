@@ -1,0 +1,50 @@
+Title       : KogSys 2017
+Author      : Raphael
+Package     : gensymb
+
+~ MathDefs
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\R}{\mathbb{R}}
+~
+
+
+[TITLE]
+
+# Bildverarbeitung
+
+## Bilderzeugung
+
+### Kameraeigenschaften
+Farbe, Auflösung, Farbkodierung, Framerate
+
+### Bildrepräsentation
+
+Bild ist Abbildung
+~ Equation { #eq-img }
+\textit{Img} : \N^d \to V
+~
+mit $d$ Bilddimension, und $V =$
+
+- $[0,q]$ für Graustufen (oft $q = 255$)
+- $[0,R] \times [0,G] \times [0,B]$ für RGB (oft $R=G=B=255$)
+
+#### HSI-Modell
+
+- Farbdarstellung durch Hue, Saturation und Intensity
+- Trennt Helligkeit vom Farbwert $\rightarrow$ unempfindlich gegen
+Beleuchtungsänderungen
+- Gut geeignet für Farbsegmentierung
+
+##### Umrechnung von RGB
+~ Equation { #eq-hsi }
+  \begin{aligned}
+    c &= \arccos \frac{2R-G-B}{2\sqrt{(R-G)^2 + (R-B)(G-B)}}\\
+    H &=
+    \begin{cases}
+      c & \text{falls } B < G\\
+      360\degree - c & \text{sonst}
+    \end{cases}\\
+    S &= 1-\frac{3}{R+G+B}\min(R,G,B)\\
+    I &= \frac{1}{3}(R+G+B)
+  \end{aligned}
+~
