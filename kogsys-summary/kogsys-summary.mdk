@@ -14,9 +14,6 @@ Package     : gensymb
 
 ## Bilderzeugung
 
-### Kameraeigenschaften
-Farbe, Auflösung, Farbkodierung, Framerate
-
 ### Bildrepräsentation
 
 Bild ist Abbildung
@@ -34,8 +31,13 @@ mit $d$ Bilddimension, und $V =$
 - Trennt Helligkeit vom Farbwert $\rightarrow$ unempfindlich gegen
 Beleuchtungsänderungen
 - Gut geeignet für Farbsegmentierung
+- Gleich wie HSV?
 
-##### Umrechnung von RGB
+![hsi-diagram]
+
+[hsi-diagram]: images/hsi-diagram.pdf "hsi-diagram" { width:auto; max-width:90% }
+
+#### Umrechnung von RGB nach HSI
 ~ Equation { #eq-hsi }
   \begin{aligned}
     c &= \arccos \frac{2R-G-B}{2\sqrt{(R-G)^2 + (R-B)(G-B)}}\\
@@ -45,6 +47,135 @@ Beleuchtungsänderungen
       360\degree - c & \text{sonst}
     \end{cases}\\
     S &= 1-\frac{3}{R+G+B}\min(R,G,B)\\
-    I &= \frac{1}{3}(R+G+B)
+    I &= (R+G+B)/3
   \end{aligned}
 ~
+- Für $R = G = B$ ist $H$ undefiniert
+- Für $R = G = B = 0$ ist $S$ undefiniert
+
+#### Umrechnung von RGB24 nach 8-Bit Graustufen
+
+Naiv
+~ Equation { #eq-grayscale1 }
+  g = (R + G + B)/3
+~
+
+Angepasst an menschliche Wahrnehmung (Grün wird am stärksten wahrgenommen)
+~ Equation { #eq-grayscale1 }
+  g = 0,299 R + 0,587 G + 0,144 B
+~
+
+### Kamera
+
+#### Eigenschaften
+Farbe, Auflösung, Farbkodierung, Framerate
+
+#### Lochkameramodell
+
+~ Figure { #fig-monarch; caption: "Lochkameramodell" }
+![pinhole-cam]
+~
+- Einfachstes Modell auf Basis linearer Strahlenoptik
+- Interner Parameter: Brennweite $f$ (*Fokalabstand*)
+
+~ Figure { #fig-monarch; caption: "Lochkameramodell in Positivlage" }
+![pinhole-cam-2]
+~
+- Projektionszentrum $C$ liegt hinter der Bildebene
+- Dadurch: keine Spiegelung (Minuszeichen entfallen)
+
+#### Perspektivprojektion
+
+Projektion eines Szenenpunktes $P = (X,Y,Z)$ auf einen Bildpunkt $p = (u,v,w)$:
+
+~ Equation { #eq-projection }
+p = -\frac{f}{Z}P
+~
+
+
+[pinhole-cam]: images/pinhole-cam.png "pinhole-cam" { width:auto; max-width:90% }
+[pinhole-cam-2]: images/pinhole-cam-2.png "pinhole-cam-2" { width:auto; max-width:90% }
+
+
+## Bildverarbeitung
+
+### Homogene Punktoperatoren
+
+Unabhängig von der Position bzw. den Nachbarn des Pixels
+
+~ Equation { #eq-homogen }
+\text{Img}'(u,v) = f(\text{Img}(u,v))
+~
+
+### Affine Punktoperatoren
+
+Spezialfall einer homogenen Operation mit
+
+~ Equation { #eq-affin }
+f(x) = a x + b
+~
+
+Im Fall der Verarbeitung von Graustufenbildern:
+```python
+  def clamp(x, low, high):
+    min(high, max(low, x))
+  
+  def affinPunkt(x, a, b):
+    clamp(a x + b, 0, q)
+    
+  def affinBild(img, a, b):
+    img.mapPixels(lambda x : affinPunkt(x, a, b))
+```
+
+### Anwendung Affiner Punktoperatoren
+
+- Kontrastveränderung: $b = 0$
+  - $a < 1$ Verminderung
+  - $a > 1$ Erhöhung
+- Helligkeitsveränderung: $a = 1$
+  - $b < 0$ Verminderung
+  - $b > 0$ Erhöhung
+- Invertierung: $b = q, a = -1 \implies f(x) = q-x$
+
+### Nicht-affine Punktoperatoren
+
+- Ausgleich von Sensor-Nichtlinearitäten
+- Gewichtung
+- Binarisierung
+
+### Automatische Kontrastanpassung
+
+#### Grauwerthistogramm
+
+$H: [0, q] \to \N$ ist Grauwerthistogramm.
+
+$H_a(x) = \sum_{k=0}^x H(k)$ ist akkumuliertes Histogramm.
+$H_a(x)$ ist also die Anzahl der Pixel mit Wert $k \leq x$.
+
+$H_q(p)$ mit $p \in [0,1]$ ist $p$-Quantil der Grauwerte eines Bildes.
+$H_q(p)$ ist also kleinstes $x \in \{0, ... , q\}$ für das gilt $H_a(x) \geq p H_a(q)$.
+Oder der kleinste Wert, der mindestens so groß ist, wie die Werte von $p \cdot 100\%$ der Bildpixel.
+
+#### Spreizung
+
+~ Equation { #eq-spreizung }
+x \mapsto q \frac{x - \textit{min}}{\textit{max} - \textit{min}}
+~
+
+```python
+  def scalePoint(x, min, max):
+    a = q / (max - min)
+    b = -q * min /(max - min)
+    affinPunkt(x, a, b)
+  
+  def spreizeBild(img, min, max):
+    img.mapPixels(lambda x : spreizePunkt(x, min, max))
+    
+  def spreizung(img):
+    histogrammdehnung(img, 0, 1)
+
+  def histogrammdehnung(img, lower, upper):
+    min = quantile(img, lower)
+    max = quantile(img, upper)
+    spreizeBild(img, min, max)
+```
